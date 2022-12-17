@@ -9,7 +9,7 @@
 #include <linux/path.h>
 #include <linux/slab.h>
 
-#include "common.h"
+#include "common_inode.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) 
 #define HAVE_PROC_OPS 
