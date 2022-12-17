@@ -7,59 +7,56 @@
 #include <linux/namei.h>
 #include <linux/time.h>
 #include <linux/path.h>
+#include <linux/slab.h>
+
+#include "common.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) 
 #define HAVE_PROC_OPS 
 #endif 
  
 #define procfs_name "inode_info" 
-#define PROCFS_MAX_SIZE 4096
- 
-static struct proc_dir_entry *our_proc_file;
 
-static struct inode* my_inode; 
+static struct inode* my_inode;
+static struct proc_dir_entry *our_proc_file; 
  
-static ssize_t procfile_read(struct file *filePointer, char __user *buffer, 
+static ssize_t procfile_read(struct file *filePointer, char *buffer, 
                              size_t buffer_length, loff_t *offset) 
 { 
 	int len = 0;
-	char buf[PROCFS_MAX_SIZE];
+	struct my_inode m_inode;
 	if (my_inode == NULL) {
-		len += sprintf(buf, "Error. No inode with this path \n");
 	} else {
-		len += sprintf(buf+len, "size is %llu\n", my_inode->i_size);
-		len += sprintf(buf+len, "version is %ld\n", my_inode->i_version);
-		len += sprintf(buf+len, "id of owner is %ld\n", my_inode->i_uid);
-		//struct timespec ts = my_inode->i_mtime;
-		//len += sprintf(buf+len, "last changing time is %li.%09li \n", ts.tv_sec , ts.tv_nsec); //+
+		len = sizeof(struct my_inode);
+		m_inode.number =  my_inode->i_ino;
+		m_inode.size =  my_inode->i_size;
 	}
 
-	if(copy_to_user(buffer, buf, len)) {
+	if(copy_to_user(buffer, &m_inode, sizeof(struct my_inode))) {
 		return -EFAULT;
 	}
-
 	*offset = len;
 	return len;
-};
+}
 
-static ssize_t procfile_write(struct file *file, const char __user *buff, 
+static ssize_t procfile_write(struct file *file, const char *buff, 
                              size_t len, loff_t *off) 
 { 
-	char file_path[PROCFS_MAX_SIZE];
-	if (copy_from_user(file_path, buff, len)) {
+	struct file_path fp;
+	if (copy_from_user(&fp, buff, len)) {
 		return -EFAULT;
 	}
-	pr_info("path %s \n", file_path);
+	pr_info("path %s \n", fp.path);
 	struct path path;
-	kern_path(file_path, LOOKUP_FOLLOW, &path);
+	kern_path(fp.path, LOOKUP_FOLLOW, &path);
 	
 	my_inode = path.dentry->d_inode;
 
-	*off = strlen(file_path);
+	*off = sizeof(struct file_path);
 	
-	return strlen(file_path);
+	return sizeof(struct file_path);
 	
-};
+}
  
 #ifdef HAVE_PROC_OPS 
 static const struct proc_ops proc_file_fops = { 
