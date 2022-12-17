@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
-#define file_proc "/proc/inode_info"
+#include "common.h"
 
+#define file_proc "/proc/inode_info"
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
@@ -17,13 +18,19 @@ int main(int argc, char *argv[]) {
 	int path_size = strlen(path);
 
 	int fd = open(file_proc, O_RDWR);
-	char inbuf[4096];
-	sprintf(inbuf, "%s", path);
-	write(fd, inbuf, path_size);
+	if (fd == -1) {
+		fprintf(stderr, "Proc file doesn't exist \n");
+		return 1;
+	}
+	struct file_path fp;
+	fp.size = path_size;
+	fp.path = path;
+	write(fd, &fp, sizeof(struct file_path));
 	lseek(fd, 0, SEEK_SET);
-	char outbuf[4096];
-	read(fd, outbuf, 4096);
-	puts(outbuf);
-	
+	struct my_inode m_inode;
+	read(fd, &m_inode, sizeof(struct my_inode));
+	printf("\nInode info:\n");
+	printf("size is %llu\n", m_inode.size);
+	printf("number is %llu\n", m_inode.number);
 	return 0;
 }
