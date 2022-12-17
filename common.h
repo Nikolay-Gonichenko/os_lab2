@@ -1,13 +1,7 @@
-#include <stdatomic.h>
-
-
-struct my_inode {
-	//atomic64_t version;
-	long number;
-	unsigned long long size;
+struct my_vma {
+	unsigned long start;
+	unsigned long end;
+	int number;
+	unsigned long flags;
 };
 
-struct file_path {
-	size_t size;
-	char *path;
-};
