@@ -7,68 +7,56 @@
 #include <linux/fs.h>
 #include <linux/mm_types.h>
 
+#include "common.h"
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) 
 #define HAVE_PROC_OPS 
 #endif 
  
 #define procfs_name "vma_info" 
-#define PROCFS_MAX_SIZE 8192
- 
-static struct proc_dir_entry *our_proc_file;
 
 static int pid = 1; 
+static struct proc_dir_entry *our_proc_file;
  
-static ssize_t procfile_read(struct file *filePointer, char __user *buffer, 
+static ssize_t procfile_read(struct file *filePointer, char *buffer, 
                              size_t buffer_length, loff_t *offset) 
 { 
-	int len = 0;
-	char buf[PROCFS_MAX_SIZE];
 	
 	struct task_struct *task = get_pid_task(find_get_pid(pid), PIDTYPE_PID);
 	if (task == NULL) {
-		len += sprintf(buf, "Error. No proccess with this pid \n");
 	} else {
 		struct vm_area_struct *vmlist;
 		int count = 0;
+		struct my_vma vmas[10];
 		for(vmlist = task->mm->mmap; vmlist!=NULL && count<10; vmlist=vmlist->vm_next) {
-			len += sprintf(buf+len, "VM_Area number %d\n", count);
-			len += sprintf(buf+len, "start is %ld\n", vmlist->vm_start);
-			len += sprintf(buf+len, "end is %ld\n", vmlist->vm_end);
-			len += sprintf(buf+len, "flags are %ld\n", vmlist->vm_flags);
-			len += sprintf(buf+len, "\n");
+			vmas[count].number = count;
+			vmas[count].start = vmlist->vm_start;
+			vmas[count].end = vmlist->vm_end;
+			vmas[count].flags = vmlist->vm_flags;
 			count++;
+		}
+		if(copy_to_user(buffer, vmas, sizeof(struct my_vma)*10)) {
+			pr_info("error \n");
+			return -EFAULT;
 		}
 	}
 
-	if(copy_to_user(buffer, buf, len)) {
-		pr_info("error \n");
-		return -EFAULT;
-	}
+	
 
-	*offset = len;
-	return len;
+	*offset = sizeof(struct my_vma)*10;
+	return sizeof(struct my_vma)*10;
 };
 
-static ssize_t procfile_write(struct file *file, const char __user *buff, 
+static ssize_t procfile_write(struct file *file, const char *buff, 
                              size_t len, loff_t *off) 
 { 
-	char buffer[PROCFS_MAX_SIZE];
-	if (copy_from_user(buffer, buff, len)) {
+	if (copy_from_user(&pid, buff, len)) {
 		return -EFAULT;
 	}
 
-	int num_of_digit;
-	int read_digit;
+	*off = sizeof(int);
 	
-	num_of_digit = sscanf(buffer, "%d", &read_digit);
-	if (num_of_digit != 1) {
-		return -EFAULT;
-	}
-
-	pid = read_digit;
-	*off = strlen(buffer);
-	
-	return strlen(buffer);
+	return sizeof(int);
 	
 };
  
@@ -86,7 +74,7 @@ static const struct file_operations proc_file_fops = {
  
 static int __init proc_init(void) 
 { 
-    our_proc_file = proc_create(procfs_name, 0666, NULL, &proc_file_fops); 
+    struct proc_dir_entry *our_proc_file = proc_create(procfs_name, 0666, NULL, &proc_file_fops); 
     if (NULL == our_proc_file) { 
         proc_remove(our_proc_file); 
         pr_alert("Error:Could not initialize /proc/%s\n", procfs_name); 
