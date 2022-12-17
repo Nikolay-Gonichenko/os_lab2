@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
-#define file_proc "/proc/vma_info"
+#include "common.h"
 
+#define file_proc "/proc/vma_info"
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
@@ -21,13 +22,22 @@ int main(int argc, char *argv[]) {
 	}
 
 	int fd = open(file_proc, O_RDWR);
-	char inbuf[4096];
-	sprintf(inbuf, "%s", argv[1]);
-	write(fd, inbuf, 17);
+	if (fd == -1) {
+		fprintf(stderr, "Proc file doesn't exist \n");
+		return 1;
+	}
+	
+	write(fd, &pid, sizeof(int));
 	lseek(fd, 0, SEEK_SET);
-	char outbuf[8192];
-	read(fd, outbuf, 8192);
-	puts(outbuf);
+	struct my_vma vmas[10];
+	read(fd, vmas, sizeof(struct my_vma)*10);
+	for(size_t i = 0; i<10; i+=1){
+		printf("VM_Area number %d\n", vmas[i].number);
+		printf("start is %ld\n", vmas[i].start);
+		printf("end is %ld\n", vmas[i].end);
+		printf("flags are %ld\n", vmas[i].flags);
+		printf("\n");
+	}
 	
 	return 0;
 }
