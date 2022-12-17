@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
-#include "common.h"
+#include "common_inode.h"
 
 #define file_proc "/proc/inode_info"
 
